@@ -33,13 +33,28 @@ local numGpus = import "param://num_gpus";
 local batchSize = import "param://batch_size";
 local model = import "param://model";
 
+local mode = "train";
+local num_inputs = "2";
+local num_outputs = "2";
+local num_neurons = "2";
+local batch_size = "3";
+local learning_rate = "0.01";
+local num_layers = "1";
+local num_epochs = "5000";
+local checkpoint_dir = "./foo";
+
 local args = [
                "python",
-               "tf_cnn_benchmarks.py",
-               "--batch_size=" + batchSize,
-               "--model=" + model,
-               "--variable_update=parameter_server",
-               "--flush_stdout=true",
+               "run.py",
+               "--mode=" + mode,
+               "--num_inputs=" + num_inputs,
+               "--num_outputs=" + num_outputs,
+               "--num_neurons=" + num_neurons,
+               "--batch_size=" + batch_size,
+               "--learning_rate=" + learning_rate,
+               "--num_layers=" + num_layers,
+               "--num_epochs=" + num_epochs,
+               "--checkpoint_dir=" + checkpoint_dir,
              ] +
              if numGpus == 0 then
                // We need to set num_gpus=1 even if not using GPUs because otherwise the devie list
@@ -69,17 +84,13 @@ local workerSpec = if numGpus > 0 then
 else
   tfJob.parts.tfJobReplica("WORKER", numWorkers, args, image);
 
-// TODO(jlewi): Look at how the redis prototype modifies a container by
-// using mapContainersWithName. Can we do something similar?
-// https://github.com/ksonnet/parts/blob/9d78d6bb445d530d5b927656d2293d4f12654608/incubator/redis/redis.libsonnet
 local replicas = std.map(function(s)
                            s {
                              template+: {
                                spec+: {
-                                 // TODO(jlewi): Does this overwrite containers?
                                  containers: [
                                    s.template.spec.containers[0] {
-                                     workingDir: "/opt/tf-benchmarks/scripts/tf_cnn_benchmarks",
+                                     workingDir: "/workdir",
                                    },
                                  ],
                                },

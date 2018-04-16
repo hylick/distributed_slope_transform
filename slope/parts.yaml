@@ -12,10 +12,10 @@
    ],
    "repository": {
       "type": "git",
-      "url": "https://github.com/hylick/distributed_slope_transform"
+      "url": "https://github.com/kubeflow/kubeflow"
    },
    "bugs": {
-      "url": "https://github.com/hylick/distributed_slope_transform/issues"
+      "url": "https://github.com/kubeflow/kubeflow/issues"
    },
    "keywords": [
       "kubeflow",
