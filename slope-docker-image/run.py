@@ -12,6 +12,7 @@ from gen_data import gen_data
 from pathlib import Path
 import os
 import pickle
+import json
 
 NUM_INPUTS = 2
 NUM_OUTPUTS = NUM_INPUTS
@@ -32,12 +33,7 @@ def main():
   parser.add_argument('--restore_path', default=None)
   parser.add_argument('--vars_file', default=None)
 
-  parser.add_argument('--ps_hosts', default='')
-  parser.add_argument('--worker_hosts', default='')
-  parser.add_argument('--job_name', default='worker')
-  parser.add_argument('--task_index', default=0)
-
-  args = parser.parse_args()
+  args, _  = parser.parse_known_args()
   if args.mode == 'train':
     train(args)
   elif args.mode == 'test':
@@ -63,27 +59,34 @@ def restore_graph(sess,args):
   return trained_model, w, b
 
 def train(args):
+  tf_config = os.environ.get('TF_CONFIG', '{}')
+  tf_config_json = json.loads(tf_config)
+  cluster = tf_config_json.get('cluster', {})
+  job_name = tf_config_json.get('task', {}).get('type', "")
+  task_index = tf_config_json.get('task', {}).get('index', "")
+  ps_hosts = cluster.get("ps")
+  worker_hosts = cluster.get("worker")
 
   graph = tf.Graph()
   var_path = cwd + '/' + args.checkpoint_dir + '/variables/'
-  ps_hosts = args.ps_hosts.split(",")
-  worker_hosts = args.worker_hosts.split(",")
+  #ps_hosts = args.ps_hosts.split(",")
+  #worker_hosts = args.worker_hosts.split(",")
 
   # Create a cluster from the parameter server and worker hosts.
   cluster = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
   # Create and start a server for the local task.
   server = tf.train.Server(cluster,
-                           job_name=args.job_name,
-                           task_index=args.task_index)
+                           job_name=job_name,
+                           task_index=task_index)
 
-  if args.job_name == "ps":
+  if job_name == "ps":
     server.join()
-  elif args.job_name == "worker":
+  elif job_name == "worker":
   
     # Assigns ops to the local worker by default.
     with tf.device(tf.train.replica_device_setter(
-        worker_device="/job:worker/task:%d" % args.task_index,
+        worker_device="/job:worker/task:%d" % task_index,
         cluster=cluster)):
 
       with graph.as_default():
@@ -189,4 +192,5 @@ def test(args):
       input('Press Enter to continue...')
 
 if __name__ == '__main__':
+  print(os.environ['TF_CONFIG'])
   main()
