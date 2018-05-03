@@ -1,0 +1,2 @@
+docker build -t gcr.io/hylick-external/tf-job-slope:latest -f Dockerfile .
+gcloud docker -- push gcr.io/hylick-external/tf-job-slope:latest

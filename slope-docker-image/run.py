@@ -33,8 +33,8 @@ def main():
   parser.add_argument('--restore_path', default=None)
   parser.add_argument('--vars_file', default=None)
 
-  parser.add_argument('--ps_hosts', default='')
-  parser.add_argument('--worker_hosts', default='')
+  parser.add_argument('--ps_hosts', default='localhost:2222')
+  parser.add_argument('--worker_hosts', default='localhost:2222')
   parser.add_argument('--job_name', default='worker')
   parser.add_argument('--task_index', default=0)
 
@@ -62,6 +62,20 @@ def restore_graph(sess,args):
     quit()
 
   return trained_model, w, b
+
+def checkpoint(sess, saver, ckpt_file, w, b, w_b_saved, var_path, model, e=None):
+  save_path = saver.save(sess, str(ckpt_file), global_step=e)
+  if not w_b_saved:
+    try:
+      with open(var_path + model + '.pkl', 'wb') as f:
+        pickle.dump([w,b],f)
+        w_b_saved = True
+    except FileNotFoundError as fnf:
+      os.makedirs(var_path)
+      with open(var_path + model + '.pkl', 'wb') as f:
+        pickle.dump([w,b],f)
+        w_b_saved = True
+  return save_path, w_b_saved
 
 def train(args):
 
@@ -131,6 +145,11 @@ def train(args):
           # Prepare to Save model
           i = 0
           model = 'model%s' % i
+          try:
+            os.makedirs(cwd + '/' + args.checkpoint_dir)
+          except OSError:
+            if not os.path.isdir(cwd + '/' + args.checkpoint_dir):
+              raise
           ckpt_file_index = Path(cwd + '/' + args.checkpoint_dir + '/' + model + '.ckpt.index')
           ckpt_file = Path(cwd + '/' + args.checkpoint_dir + '/' + model + '.ckpt')
           while ckpt_file_index.is_file():
@@ -167,26 +186,8 @@ def train(args):
                 print(train_output, w, b)
                 print('\n')
                 print(y_acc, sess.run(feed_fwd_model.weights)[0], sess.run(feed_fwd_model.biases)[0])
-                save_path = saver.save(sess, str(ckpt_file), global_step=e)
-                if not w_b_saved:
-                  try:
-                    with open(var_path + model + '.pkl', 'wb') as f:
-                      pickle.dump([w,b],f)
-                      w_b_saved = True
-                  except FileNotFoundError as fnf:
-                    os.makedirs(var_path)
-                    with open(var_path + model + '.pkl', 'wb') as f:
-                      pickle.dump([w,b],f)
-                      w_b_saved = True
-          save_path = saver.save(sess, str(ckpt_file))
-          if not w_b_saved:
-            try:
-              with open(var_path + model + '.pkl', 'wb') as f:
-                pickle.dump([w,b],f)
-            except FileNotFoundError as fnf:
-              os.makedirs(var_path)
-              with open(var_path + model + '.pkl', 'wb') as f:
-                pickle.dump([w,b],f)
+                save_path, w_b_saved = checkpoint(sess,saver,ckpt_file,w,b,w_b_saved,var_path,model,e)
+          save_path, w_b_saved = checkpoint(sess,saver,ckpt_file,w,b,w_b_saved,var_path,model) # final checkpoint
           print('Model saved to %s' % str(save_path))
           sess.close()
 
